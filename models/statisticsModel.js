@@ -32,9 +32,11 @@ class Statistics {
  findAll() {
     return new Promise((resolve, reject) => {
       const sql = `
-        SELECT s.*, c.name AS category_name
+        SELECT s.*, c.name AS category_name, u.username AS updated_by
         FROM statistics s
+        JOIN users u ON u.userID = s.userID
         LEFT JOIN statistics_categories c ON s.category_id = c.id
+        WHERE s.status = 'Đã duyệt'
         ORDER BY s.id DESC
       `;
       db.query(sql, [], (err, rows) => {
@@ -47,14 +49,48 @@ class Statistics {
   findById(id) {
     return new Promise((resolve, reject) => {
       const sql = `
-        SELECT s.*, c.name AS category_name
+        SELECT s.*, c.name AS category_name, u.username AS updated_by
         FROM statistics s
         LEFT JOIN statistics_categories c ON s.category_id = c.id
+        JOIN users u ON u.userID = s.userID
         WHERE s.id = ?
       `;
       db.query(sql, [id], (err, rows) => {
         if (err) return reject(err);
         resolve(rows?.[0]);
+      });
+    });
+  }
+
+   getAllByAdmin() {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT s.*, c.name AS category_name, u.username AS updated_by
+        FROM statistics s
+        JOIN users u ON u.userID = s.userID
+        LEFT JOIN statistics_categories c ON s.category_id = c.id
+        ORDER BY s.id DESC
+      `;
+      db.query(sql, [], (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
+      });
+    });
+  }
+
+  getAllByUser(id) {
+    return new Promise((resolve, reject) => {
+      const sql = `
+        SELECT s.*, c.name AS category_name, u.username AS updated_by
+        FROM statistics s
+        INNER JOIN users u ON s.userID = u.userID
+        LEFT JOIN statistics_categories c ON s.category_id = c.id
+        WHERE s.userID = ?
+        ORDER BY s.id DESC
+      `;
+      db.query(sql, [id], (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows);
       });
     });
   }

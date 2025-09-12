@@ -123,6 +123,8 @@ const Statistics = require("../models/statisticsModel");
 const StatisticsCategory = require("../models/statisticsCategoryModel");
 const StatisticsAsset = require("../models/statisticsAssetModel");
 const { removeFileIfExists } = require("../middleware/fileHelper");
+const moment = require('moment');
+const fs = require('fs'); 
 
 // gom assets theo statistics_id
 function groupAssets(rows) {
@@ -141,8 +143,13 @@ class StatisticsController {
       const images = (req.files?.image || []).map(f => f);
       const files  = (req.files?.file  || []).map(f => f);
 
-      const { name, description, content, category_id } = req.body;
+      const { name, description, content, category_id, date, status = 'nhập tin', userID } = req.body;
       if (!name) return res.status(400).json({ error: "Name is required" });
+
+               // Nếu không có published_at từ body => lấy ngày giờ hiện tại
+          const posting_date = date
+            ? moment(date, "DD-MM-YYYY").format("YYYY-MM-DD HH:mm:ss")
+            : moment().format("YYYY-MM-DD HH:mm:ss");
 
       // validate category nếu có
       let categoryId = null;
@@ -159,7 +166,9 @@ class StatisticsController {
         name, description, content,
         image: images[0]?.filename || null,
         file:  files[0]?.filename  || null,
-        category_id: categoryId
+        category_id: categoryId,
+        date: posting_date,
+        status, userID
       };
       const rs = await Statistics.create(data);
       const statId = rs.insertId;
@@ -172,7 +181,7 @@ class StatisticsController {
       await StatisticsAsset.bulkCreate(assetRecords);
 
       const assets = await StatisticsAsset.findByStatistics(statId);
-      res.status(201).json({ message: "Tạo thống kê thành công", id: statId, assets });
+      res.status(201).json({ success: true, message: status === 'Nháp tin' ? 'Lưu thành công' : 'Chuyển đi thành công', id: statId, assets });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
@@ -243,7 +252,7 @@ class StatisticsController {
     const newImages = (req.files?.image || []).map(f => f);
     const newFiles  = (req.files?.file  || []).map(f => f);
 
-    const { name, description, content, category_id, replace_assets, delete_asset_ids } = req.body;
+    const { name, description, content, category_id, replace_assets, delete_asset_ids, date, status, userID } = req.body;
 
     // --- XÓA MỘT SỐ ASSET CỤ THỂ (nếu truyền) ---
     if (delete_asset_ids) {
@@ -265,6 +274,11 @@ class StatisticsController {
     if (name !== undefined)        patch.name = name;
     if (description !== undefined) patch.description = description;
     if (content !== undefined)     patch.content = content;
+    if (status !== undefined)     patch.status = status;
+    if (userID !== undefined)     patch.userID = userID;
+    if (date) {
+          patch.date = moment(date, 'DD-MM-YYYY').format('YYYY-MM-DD HH:mm:ss');
+        }
 
     // --- SET/CLEAR CATEGORY ---
     if (category_id !== undefined) {
@@ -388,6 +402,38 @@ async deleteById(req, res) {
     res.status(500).json({ error: err.message });
   }
 }
+
+
+  // GET tất cả thống kê theo (ADMIN)
+async getAllByAdmin(req, res) {
+ try {
+      const rows = await Statistics.getAllByAdmin(); // đã JOIN category_name trong model của bạn
+      const ids = rows.map(r => r.id);
+      const assetRows = await StatisticsAsset.findByStatisticsIds(ids);
+      const map = groupAssets(assetRows);
+      const data = rows.map(r => ({ ...r, assets: map.get(r.id) || [] }));
+      res.status(200).json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
+
+   // GET tất cả bài theo User
+async getAllByUser(req, res) {
+ try {
+      const rows = await Statistics.getAllByUser(req.params.id); // đã JOIN category_name trong model của bạn
+      const ids = rows.map(r => r.id);
+      const assetRows = await StatisticsAsset.findByStatisticsIds(ids);
+      const map = groupAssets(assetRows);
+      const data = rows.map(r => ({ ...r, assets: map.get(r.id) || [] }));
+      res.status(200).json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  }
 }
+
 
 module.exports = new StatisticsController();

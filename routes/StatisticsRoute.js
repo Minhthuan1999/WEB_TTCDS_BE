@@ -39,6 +39,8 @@ router.put("/update/:id",     uploadFields, StatisticsController.update);
 router.delete("/delete/:id",                 StatisticsController.delete);
 router.get("/getall",                        StatisticsController.getAll);
 router.get("/getbyId/:id",                    StatisticsController.getById);
+router.get("/getall/admin",                    StatisticsController.getAllByAdmin);
+router.get("/getall/user/:id",                    StatisticsController.getAllByUser);
 
 // Xoá 1 file theo asset id
 router.delete("/assets/delete/:id", StatisticsController.deleteById);
